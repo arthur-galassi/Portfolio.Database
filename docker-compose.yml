@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: portfolio-auth-db
+    restart: always
+    environment:
+      POSTGRES_DB: portfolio_auth
+      POSTGRES_USER: portfolio_user
+      POSTGRES_PASSWORD: portfolio_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - portfolio_auth_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio_user -d portfolio_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrations:
+    build:
+      context: .
+      dockerfile: Portfolio.Database.Migrations/Dockerfile
+    container_name: portfolio-database-migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=portfolio_auth;Username=portfolio_user;Password=portfolio_password"
+    restart: "no"
+
+  seed:
+    build:
+      context: .
+      dockerfile: Portfolio.Database.Seed/Dockerfile
+    container_name: portfolio-database-seed
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=portfolio_auth;Username=portfolio_user;Password=portfolio_password"
+    restart: "no"
+
+volumes:
+  portfolio_auth_volume:
+    name: portfolio_auth_volume
